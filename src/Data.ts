@@ -1,16 +1,14 @@
-'use strict';
+import fs from "fs";
+import path from "path";
+import * as yaml from "js-yaml";
 
-const fs = require('fs');
-const path = require('path');
-const yaml = require('js-yaml');
-
-let dataPath = null;
+let dataPath: string | null = null;
 
 /**
  * Class for loading/parsing data files from disk
  */
-class Data {
-  static setDataPath(path) {
+export default class Data {
+  static setDataPath(path: string) {
     dataPath = path;
   }
 
@@ -19,7 +17,7 @@ class Data {
    * @param {string} filepath
    * @return {*} parsed contents of file
    */
-  static parseFile(filepath) {
+  static parseFile(filepath: string) {
     if (!fs.existsSync(filepath)) {
       throw new Error(`File [${filepath}] does not exist!`);
     }
@@ -31,11 +29,10 @@ class Data {
       '.json': JSON.parse,
     };
 
-    const ext = path.extname(filepath);
+    const ext = path.extname(filepath) as keyof typeof parsers;
     if (!(ext in parsers)) {
       throw new Error(`File [${filepath}] does not have a valid parser!`);
     }
-
     return parsers[ext](contents);
   }
 
@@ -45,21 +42,21 @@ class Data {
    * @param {*} data
    * @param {function} callback
    */
-  static saveFile(filepath, data, callback) {
+  static saveFile(filepath: string, data?: unknown, callback?: () => void) {
     if (!fs.existsSync(filepath)) {
       throw new Error(`File [${filepath}] does not exist!`);
     }
 
     const serializers = {
-      '.yml': yaml.safeDump,
-      '.yaml': yaml.safeDump,
-      '.json': function(data) {
+      '.yml': yaml.dump,
+      '.yaml': yaml.dump,
+      '.json': function (data: unknown) {
         //Make it prettttty
         return JSON.stringify(data, null, 2);
       }
     };
 
-    const ext = path.extname(filepath);
+    const ext = path.extname(filepath) as keyof typeof serializers;
     if (!(ext in serializers)) {
       throw new Error(`File [${filepath}] does not have a valid serializer!`);
     }
@@ -78,7 +75,7 @@ class Data {
    * @param {string} id
    * @return {*}
    */
-  static load(type, id) {
+  static load(type: string, id: string) {
     return this.parseFile(this.getDataFilePath(type, id));
   }
 
@@ -89,7 +86,7 @@ class Data {
    * @param {*} data
    * @param {function} callback
    */
-  static save(type, id, data, callback) {
+  static save(type: string, id: string, data: unknown, callback?: () => void) {
     fs.writeFileSync(this.getDataFilePath(type, id), JSON.stringify(data, null, 2), 'utf8');
     if (callback) {
       callback();
@@ -102,7 +99,7 @@ class Data {
    * @param {string} id
    * @return {boolean}
    */
-  static exists(type, id) {
+  static exists(type: string, id: string) {
     return fs.existsSync(this.getDataFilePath(type, id));
   }
 
@@ -112,15 +109,25 @@ class Data {
    * @param {string} id
    * @return {string}
    */
-  static getDataFilePath(type, id) {
+  static getDataFilePath(type: string, id: string) {
+    //TODO: 使用自定义异常处理
+    if (!dataPath) {
+      throw new Error("地址未初始化");
+    }
     switch (type) {
       case 'player': {
-        return dataPath + `player/${id}.json`;
+        return path.join(dataPath, `player/${id}.json`);
       }
       case 'account': {
-        return dataPath + `account/${id}.json`;
+        return path.join(dataPath, `account/${id}.json`);
+      }
+
+      default: {
+        //TODO: 使用自定义异常处理
+        throw new Error("不支持的type: " + type);
       }
     }
+
   }
 
   /**
@@ -129,7 +136,7 @@ class Data {
    * @param {string} [file]
    * @return {boolean}
    */
-  static isScriptFile(path, file) {
+  static isScriptFile(path: string, file: string) {
     file = file || path;
     return fs.statSync(path).isFile() && file.match(/js$/);
   }
@@ -143,5 +150,3 @@ class Data {
     return motd;
   }
 }
-
-module.exports = Data;
